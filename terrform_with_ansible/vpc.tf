@@ -74,6 +74,26 @@ resource "aws_instance" "web" {
   }
 }
 
+resource "null_resource" "wait_for_instance" {
+  depends_on = [aws_instance.web]
+
+  provisioner "local-exec" {
+    command = "sleep 60"
+  }
+}
+
+resource "null_resource" "ansible_provision" {
+  depends_on = [null_resource.wait_for_instance]
+
+  provisioner "local-exec" {
+    command = <<EOT
+      echo "[web]" > inventory
+      echo "${aws_instance.web.public_ip} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa" >> inventory
+      ansible-playbook -i inventory nginx_playbook.yml
+    EOT
+  }
+}
+
 output "instance_ip" {
   value = aws_instance.web.public_ip
 }
